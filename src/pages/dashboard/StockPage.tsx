@@ -132,8 +132,13 @@ const StockPage = () => {
       // Générer une référence interne pour le produit
       const reference = `REF-${new Date().getFullYear().toString().substring(2)}-${String(produits.length + 1).padStart(3, '0')}`;
       
-      // Si le code-barres n'est pas fourni, générer un nouveau code-barres unique (EAN-13)
-      const codeBarres = produitData.codeBarres || generateUniqueBarcode();
+      // Utiliser exactement le code-barres saisi par l'utilisateur s'il existe
+      // Ne générer un code-barres que si le champ est vide
+      const codeBarres = produitData.codeBarres && produitData.codeBarres.trim() !== '' 
+        ? produitData.codeBarres 
+        : generateUniqueBarcode();
+      
+      console.log("Code-barres utilisé:", codeBarres, "Code-barres saisi:", produitData.codeBarres);
       
       // Créer le produit dans Supabase
       const newProduit = await createProduit({
@@ -182,11 +187,12 @@ const StockPage = () => {
     depotId: string;
     composants: { produitId: string; quantite: number }[];
     prixVenteManuel?: number;
+    codeBarres?: string;
   }) => {
     setIsLoading(prev => ({ ...prev, compose: true }));
     
     try {
-      const { nom, description, categorieId, depotId, composants, prixVenteManuel } = compositionData;
+      const { nom, description, categorieId, depotId, composants, prixVenteManuel, codeBarres } = compositionData;
       
       // Calculer le prix d'achat total des composants
       const prixAchatTotal = composants.reduce((total, comp) => {
@@ -200,15 +206,17 @@ const StockPage = () => {
       // Générer une référence unique pour le produit composé
       const reference = `COMP-${new Date().getFullYear().toString().substring(2)}-${String(produits.filter(p => p.compose).length + 1).padStart(3, '0')}`;
       
-      // Générer un code-barres unique pour le produit composé
-      const codeBarres = generateUniqueBarcode();
+      // Utiliser le code-barres saisi ou en générer un si vide
+      const productBarcode = codeBarres && codeBarres.trim() !== '' 
+        ? codeBarres 
+        : generateUniqueBarcode();
       
       // Créer le produit composé dans Supabase
       const newProduit = await createProduit({
         nom,
         description,
         reference,
-        codeBarres,
+        codeBarres: productBarcode,
         prixAchat: prixAchatTotal,
         prixVente,
         quantite: 0, // Le stock initial est à 0, à augmenter lors de la création

@@ -137,6 +137,10 @@ export const createProduit = async (produit: Omit<Produit, 'id' | 'created_at' |
       produit.reference = `REF-${new Date().getTime()}`;
     }
     
+    // Préserver le code-barres exactement comme il a été saisi
+    const codeBarres = produit.codeBarres || '';
+    console.log("Code-barres utilisé:", codeBarres);
+    
     // Générer un ID unique
     const id = uuidv4();
     
@@ -149,7 +153,7 @@ export const createProduit = async (produit: Omit<Produit, 'id' | 'created_at' |
       prixvente: produit.prixVente,
       quantite: produit.quantite,
       description: produit.description || '',
-      codebarres: produit.codeBarres || produit.reference,
+      codebarres: codeBarres, // Utiliser la valeur exacte
       categorieid: produit.categorieId || '',
       depotid: produit.depotId || '',
       teammemberid: produit.teamMemberId || null,
@@ -190,7 +194,7 @@ export const createProduit = async (produit: Omit<Produit, 'id' | 'created_at' |
               '${id}', 
               '${produit.nom.replace(/'/g, "''")}',
               '${produit.reference.replace(/'/g, "''")}',
-              '${(produit.codeBarres || produit.reference).replace(/'/g, "''")}',
+              '${codeBarres.replace(/'/g, "''")}',
               '${(produit.description || '').replace(/'/g, "''")}',
               ${produit.prixAchat || 0}, 
               ${produit.prixVente || 0},
