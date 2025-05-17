@@ -12,6 +12,7 @@ import DashboardHome from "./pages/dashboard/DashboardHome";
 import ClientsPage from "./pages/dashboard/ClientsPage";
 import FournisseursPage from "./pages/dashboard/FournisseursPage";
 import StockPage from "./pages/dashboard/StockPage";
+import ProductDetailPage from "./pages/dashboard/ProductDetailPage";
 import SalesPage from "./pages/SalesPage";
 import QuotesPage from "./pages/QuotesPage";
 import ParametresPage from "./pages/dashboard/ParametresPage";
@@ -46,6 +47,7 @@ const App = () => (
                 <Route path="clients" element={<ClientsPage />} />
                 <Route path="fournisseurs" element={<FournisseursPage />} />
                 <Route path="stock" element={<StockPage />} />
+                <Route path="stock/product/:id" element={<ProductDetailPage />} />
                 <Route path="ventes" element={<SalesPage />} />
                 <Route path="devis" element={<QuotesPage />} />
                 <Route path="team" element={<TeamPage />} />

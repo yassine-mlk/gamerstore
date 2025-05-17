@@ -283,6 +283,24 @@ async function updateProductFields(id: string, produit: Omit<Produit, 'id' | 'cr
  */
 export const updateProduit = async (id: string, updates: Partial<Omit<Produit, 'id' | 'created_at' | 'updated_at'>>): Promise<Produit | null> => {
   try {
+    console.log("Données de mise à jour:", updates);
+    
+    // Vérifier que les UUIDs sont valides si présents dans les mises à jour
+    if (updates.categorieId !== undefined && (updates.categorieId === '' || updates.categorieId === null)) {
+      console.error("Erreur: Tentative de mise à jour avec un ID de catégorie vide ou null");
+      return null;
+    }
+    
+    if (updates.depotId !== undefined && (updates.depotId === '' || updates.depotId === null)) {
+      console.error("Erreur: Tentative de mise à jour avec un ID de dépôt vide ou null");
+      return null;
+    }
+    
+    if (updates.teamMemberId !== undefined && updates.teamMemberId === '') {
+      // Convertir une chaîne vide en null pour ce champ qui est optionnel
+      updates.teamMemberId = null;
+    }
+    
     // Convertir les noms de champs camelCase en snake_case
     const snakeCaseUpdates: Record<string, any> = {};
     
@@ -296,9 +314,16 @@ export const updateProduit = async (id: string, updates: Partial<Omit<Produit, '
       'teamMemberId': 'teammemberid'
     };
     
-    // Convertir les noms de champs
+    // Convertir les noms de champs et filtrer les valeurs nulles pour les UUID
     Object.entries(updates).forEach(([key, value]) => {
       const snakeKey = fieldMappings[key] || key.toLowerCase();
+      
+      // Traitement spécial pour les champs UUID
+      if ((snakeKey === 'categorieid' || snakeKey === 'depotid') && (value === '' || value === null)) {
+        console.log(`Ignoré champ ${snakeKey} avec valeur vide ou null`);
+        return; // Ignorer les champs vides ou null qui sont des UUID
+      }
+      
       snakeCaseUpdates[snakeKey] = value;
     });
     

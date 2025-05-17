@@ -1,6 +1,6 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { Camera, X, Check } from 'lucide-react';
+import { Camera, X, Check, AlertCircle } from 'lucide-react';
 
 interface CameraCaptureProps {
   onCapture: (imageFile: File) => void;
@@ -26,9 +26,21 @@ const CameraCapture = ({ onCapture, onClose }: CameraCaptureProps) => {
         if (videoRef.current) {
           videoRef.current.srcObject = mediaStream;
         }
-      } catch (err) {
+      } catch (err: any) {
         console.error('Erreur d\'accès à la caméra:', err);
-        setError('Impossible d\'accéder à la caméra. Veuillez vérifier les permissions.');
+        
+        // Messages d'erreur plus spécifiques en fonction du type d'erreur
+        if (err.name === 'NotAllowedError') {
+          setError('Accès à la caméra non autorisé. Veuillez autoriser l\'accès à la caméra dans les paramètres de votre navigateur et réessayer.');
+        } else if (err.name === 'NotFoundError') {
+          setError('Aucune caméra n\'a été détectée sur votre appareil.');
+        } else if (err.name === 'NotReadableError') {
+          setError('La caméra est déjà utilisée par une autre application.');
+        } else if (err.name === 'OverconstrainedError') {
+          setError('Les contraintes demandées ne sont pas supportées par votre caméra.');
+        } else {
+          setError(`Impossible d'accéder à la caméra: ${err.message || 'Erreur inconnue'}`);
+        }
       }
     };
 
@@ -91,7 +103,20 @@ const CameraCapture = ({ onCapture, onClose }: CameraCaptureProps) => {
         </div>
 
         {error ? (
-          <div className="text-destructive p-4 text-center">{error}</div>
+          <div className="text-red-500 p-4 text-center border border-red-200 rounded-md mb-4 bg-red-50 dark:bg-red-900/20">
+            <div className="flex items-center justify-center mb-2">
+              <AlertCircle className="h-6 w-6 mr-2" />
+              <span className="font-semibold">Problème d'accès à la caméra</span>
+            </div>
+            <p>{error}</p>
+            <Button 
+              variant="outline" 
+              className="mt-4" 
+              onClick={onClose}
+            >
+              Fermer
+            </Button>
+          </div>
         ) : capturedImage ? (
           // Afficher l'image capturée
           <div className="flex flex-col items-center">
