@@ -129,6 +129,19 @@ const StockPage = () => {
     setIsLoading(prev => ({ ...prev, add: true }));
     
     try {
+      // Vérifier les champs obligatoires avant de continuer
+      if (!produitData.categorieId || produitData.categorieId.trim() === '') {
+        toast.error("Veuillez sélectionner une catégorie pour le produit");
+        setIsLoading(prev => ({ ...prev, add: false }));
+        return;
+      }
+      
+      if (!produitData.depotId || produitData.depotId.trim() === '') {
+        toast.error("Veuillez sélectionner un dépôt pour le produit");
+        setIsLoading(prev => ({ ...prev, add: false }));
+        return;
+      }
+      
       // Générer une référence interne pour le produit
       const reference = `REF-${new Date().getFullYear().toString().substring(2)}-${String(produits.length + 1).padStart(3, '0')}`;
       
@@ -153,7 +166,7 @@ const StockPage = () => {
         
         toast.success("Produit ajouté avec succès");
       } else {
-        toast.error("Erreur lors de l'ajout du produit");
+        toast.error("Erreur lors de l'ajout du produit. Vérifiez que tous les champs sont correctement remplis.");
       }
     } catch (error) {
       console.error("Erreur lors de l'ajout du produit:", error);
@@ -194,6 +207,25 @@ const StockPage = () => {
     try {
       const { nom, description, categorieId, depotId, composants, prixVenteManuel, codeBarres } = compositionData;
       
+      // Vérifier les champs obligatoires avant de continuer
+      if (!categorieId || categorieId.trim() === '') {
+        toast.error("Veuillez sélectionner une catégorie pour le produit composé");
+        setIsLoading(prev => ({ ...prev, compose: false }));
+        return;
+      }
+      
+      if (!depotId || depotId.trim() === '') {
+        toast.error("Veuillez sélectionner un dépôt pour le produit composé");
+        setIsLoading(prev => ({ ...prev, compose: false }));
+        return;
+      }
+      
+      if (!composants || composants.length === 0) {
+        toast.error("Veuillez ajouter au moins un composant au produit");
+        setIsLoading(prev => ({ ...prev, compose: false }));
+        return;
+      }
+      
       // Calculer le prix d'achat total des composants
       const prixAchatTotal = composants.reduce((total, comp) => {
         const produit = produits.find(p => p.id === comp.produitId);
@@ -232,7 +264,7 @@ const StockPage = () => {
         
         toast.success("Produit composé créé avec succès");
       } else {
-        toast.error("Erreur lors de la création du produit composé");
+        toast.error("Erreur lors de la création du produit composé. Vérifiez que tous les champs sont correctement remplis.");
       }
     } catch (error) {
       console.error("Erreur lors de la création du produit composé:", error);

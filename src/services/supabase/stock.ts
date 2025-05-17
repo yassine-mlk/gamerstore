@@ -137,6 +137,19 @@ export const createProduit = async (produit: Omit<Produit, 'id' | 'created_at' |
       produit.reference = `REF-${new Date().getTime()}`;
     }
     
+    // Vérifier que les champs UUID sont valides
+    if (!produit.categorieId || produit.categorieId.trim() === '') {
+      console.error("Erreur: L'ID de catégorie est manquant ou invalide");
+      // Ne pas permettre l'insertion avec une catégorie invalide
+      return null;
+    }
+    
+    if (!produit.depotId || produit.depotId.trim() === '') {
+      console.error("Erreur: L'ID de dépôt est manquant ou invalide");
+      // Ne pas permettre l'insertion avec un dépôt invalide
+      return null;
+    }
+    
     // Préserver le code-barres exactement comme il a été saisi
     const codeBarres = produit.codeBarres || '';
     console.log("Code-barres utilisé:", codeBarres);
@@ -154,8 +167,8 @@ export const createProduit = async (produit: Omit<Produit, 'id' | 'created_at' |
       quantite: produit.quantite,
       description: produit.description || '',
       codebarres: codeBarres, // Utiliser la valeur exacte
-      categorieid: produit.categorieId || '',
-      depotid: produit.depotId || '',
+      categorieid: produit.categorieId, // Maintenant validé ci-dessus
+      depotid: produit.depotId, // Maintenant validé ci-dessus
       teammemberid: produit.teamMemberId || null,
       image: produit.image || null,
       compose: produit.compose || false
@@ -199,8 +212,8 @@ export const createProduit = async (produit: Omit<Produit, 'id' | 'created_at' |
               ${produit.prixAchat || 0}, 
               ${produit.prixVente || 0},
               ${produit.quantite || 0},
-              '${(produit.categorieId || '').replace(/'/g, "''")}',
-              '${(produit.depotId || '').replace(/'/g, "''")}'
+              '${produit.categorieId}',
+              '${produit.depotId}'
             )
             RETURNING *
           `
