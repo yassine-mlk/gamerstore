@@ -30,23 +30,59 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({ onBarcodeScanned, defau
       const success = Math.random() > 0.2; // 80% de chance de succès
       
       if (success) {
-        // Génère un code EAN-13 aléatoire valide
-        const prefix = "611"; // Préfixe pays (exemple: Maroc)
-        const randomPart = Math.floor(Math.random() * 1000000000).toString().padStart(9, '0');
-        const codeWithoutChecksum = prefix + randomPart;
+        // Génère différents formats de codes-barres aléatoirement
+        const formats = ['EAN-13', 'EAN-8', 'UPC-A', 'Custom'];
+        const selectedFormat = formats[Math.floor(Math.random() * formats.length)];
         
-        // Calcule la somme de contrôle
-        let sum = 0;
-        for (let i = 0; i < 12; i++) {
-          sum += parseInt(codeWithoutChecksum[i]) * (i % 2 === 0 ? 1 : 3);
+        let scannedBarcode = '';
+        
+        switch (selectedFormat) {
+          case 'EAN-13':
+            // Code EAN-13
+            const prefix = "611"; // Préfixe pays (exemple: Maroc)
+            const randomPart = Math.floor(Math.random() * 1000000000).toString().padStart(9, '0');
+            const codeWithoutChecksum = prefix + randomPart;
+            
+            // Calcule la somme de contrôle
+            let sum = 0;
+            for (let i = 0; i < 12; i++) {
+              sum += parseInt(codeWithoutChecksum[i]) * (i % 2 === 0 ? 1 : 3);
+            }
+            const checksum = (10 - (sum % 10)) % 10;
+            
+            scannedBarcode = codeWithoutChecksum + checksum;
+            break;
+          
+          case 'EAN-8':
+            // Code EAN-8 (8 chiffres)
+            scannedBarcode = Math.floor(Math.random() * 100000000).toString().padStart(8, '0');
+            break;
+          
+          case 'UPC-A':
+            // Code UPC-A (12 chiffres)
+            scannedBarcode = Math.floor(Math.random() * 1000000000000).toString().padStart(12, '0');
+            break;
+          
+          case 'Custom':
+            // Format personnalisé avec lettres et chiffres
+            const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+            const length = 8 + Math.floor(Math.random() * 8); // Longueur entre 8 et 15
+            
+            let result = '';
+            for (let i = 0; i < length; i++) {
+              result += chars.charAt(Math.floor(Math.random() * chars.length));
+            }
+            
+            scannedBarcode = result;
+            break;
         }
-        const checksum = (10 - (sum % 10)) % 10;
-        
-        // Code-barres complet
-        const scannedBarcode = codeWithoutChecksum + checksum;
         
         setBarcode(scannedBarcode);
-        onBarcodeScanned(scannedBarcode);
+        
+        // Utiliser setTimeout pour prévenir toute soumission de formulaire accidentelle
+        setTimeout(() => {
+          onBarcodeScanned(scannedBarcode);
+        }, 0);
       } else {
         setScanError("Échec de la lecture. Veuillez réessayer ou saisir le code manuellement.");
       }
@@ -59,23 +95,19 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({ onBarcodeScanned, defau
   const handleManualInput = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
     
-    // Limite à 13 chiffres maximum (EAN-13)
-    if (/^\d{0,13}$/.test(value)) {
-      setBarcode(value);
-      
-      // Si le code fait exactement 13 chiffres, on considère qu'il est complet
-      if (value.length === 13) {
-        onBarcodeScanned(value);
-      }
-    }
+    // Suppression de la contrainte de format - accepter n'importe quel texte
+    setBarcode(value);
+    
+    // Ne pas transmettre la valeur automatiquement lors de la saisie
+    // Cela sera fait uniquement lors de la validation manuelle
   };
 
   // Fonction pour valider la saisie manuelle
   const validateManualBarcode = () => {
-    if (barcode.length === 13 && /^\d{13}$/.test(barcode)) {
+    if (barcode.length > 0) {
       onBarcodeScanned(barcode);
     } else {
-      setScanError("Le code-barres doit comporter exactement 13 chiffres.");
+      setScanError("Veuillez saisir un code-barres.");
     }
   };
 
@@ -88,7 +120,7 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({ onBarcodeScanned, defau
           Scanner un code-barres
         </CardTitle>
         <CardDescription>
-          Scannez un code-barres avec le scanner ou saisissez-le manuellement
+          Accepte tout format de code-barres (EAN-13, EAN-8, UPC-A, codes personnalisés, etc.)
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -103,10 +135,7 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({ onBarcodeScanned, defau
         <div className="flex flex-col sm:flex-row gap-2">
           <Input
             type="text"
-            inputMode="numeric"
-            pattern="[0-9]*"
-            maxLength={13}
-            placeholder="Code-barres (EAN-13)"
+            placeholder="Code-barres (tout format)"
             value={barcode}
             onChange={handleManualInput}
             className="flex-1"
@@ -129,13 +158,16 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({ onBarcodeScanned, defau
           </Button>
           <Button 
             onClick={() => {
-              const newBarcode = onBarcodeScanned('');
               setBarcode('');
+              // Utiliser setTimeout pour éviter la soumission accidentelle du formulaire
+              setTimeout(() => {
+                onBarcodeScanned('');
+              }, 0);
             }} 
             variant="outline" 
             className="w-full"
           >
-            Générer un nouveau code
+            Effacer le code
           </Button>
         </div>
       </CardContent>
