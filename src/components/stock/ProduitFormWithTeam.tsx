@@ -14,6 +14,9 @@ import BarcodeScanner from './BarcodeScanner';
 import { Loader2, Camera } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import CameraCapture from './CameraCapture';
+import ComputerSpecsForm from './ComputerSpecsForm';
+import { ComputerSpecs, LAPTOP_CATEGORY_ID, DESKTOP_CATEGORY_ID } from '@/data/computer-specs';
+import { createComputerCategories } from '@/scripts/create-computer-categories';
 
 type ProduitFormWithTeamProps = {
   onSubmit: (data: Omit<Produit, 'id' | 'reference' | 'created_at' | 'updated_at'>) => void;
@@ -34,6 +37,7 @@ type FormValues = {
   teamMemberId?: string;
   codeBarres?: string;
   image?: string;
+  specs?: ComputerSpecs;
 };
 
 const ProduitFormWithTeam = ({ 
@@ -49,13 +53,24 @@ const ProduitFormWithTeam = ({
   const [uploading, setUploading] = useState(false);
   const [imagePreview, setImagePreview] = useState<string | null>(initialValues?.image || null);
   const [isCameraOpen, setIsCameraOpen] = useState(false);
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string>(initialValues?.categorieId || '');
+  const [isComputerCategory, setIsComputerCategory] = useState<boolean>(false);
   
-  const form = useForm<Omit<Produit, 'id' | 'reference' | 'created_at' | 'updated_at'>>({
+  // Assurer que les catégories d'ordinateurs existent
+  useEffect(() => {
+    createComputerCategories();
+  }, []);
+  
+  const form = useForm<FormValues>({
     defaultValues: initialValues 
       ? { 
           ...initialValues,
           // Convertir chaîne vide en 'none' pour teamMemberId
-          teamMemberId: initialValues.teamMemberId || 'none'
+          teamMemberId: initialValues.teamMemberId || 'none',
+          // Extraire les specs si elles existent dans la description au format JSON
+          specs: initialValues.description?.includes('{') 
+            ? JSON.parse(initialValues.description.substring(initialValues.description.indexOf('{')))
+            : undefined
         } 
       : {
           nom: '',
@@ -69,6 +84,31 @@ const ProduitFormWithTeam = ({
           codeBarres: ''
         }
   });
+
+  // Surveiller les changements de catégorie pour afficher les champs d'ordinateur si nécessaire
+  useEffect(() => {
+    const subscription = form.watch((value, { name }) => {
+      if (name === 'categorieId') {
+        const categoryId = value.categorieId as string;
+        setSelectedCategoryId(categoryId);
+        setIsComputerCategory(
+          categoryId === LAPTOP_CATEGORY_ID || 
+          categoryId === DESKTOP_CATEGORY_ID
+        );
+      }
+    });
+    
+    // Vérifier si la catégorie initiale est une catégorie d'ordinateur
+    const initCategoryId = initialValues?.categorieId;
+    if (initCategoryId) {
+      setIsComputerCategory(
+        initCategoryId === LAPTOP_CATEGORY_ID || 
+        initCategoryId === DESKTOP_CATEGORY_ID
+      );
+    }
+    
+    return () => subscription.unsubscribe();
+  }, [form, initialValues]);
 
   useEffect(() => {
     // Mettre à jour le champ codeBarres lorsque le code-barres scanné change
@@ -140,8 +180,17 @@ const ProduitFormWithTeam = ({
   const handleSubmit = async (values: FormValues) => {
     const imageUrl = await uploadImage();
     
+    // Modifier la description pour inclure les specs d'ordinateur si nécessaire
+    let description = values.description || '';
+    if (isComputerCategory && values.specs) {
+      // Ajouter les specs au format JSON à la fin de la description
+      if (description) description += '\n\n';
+      description += JSON.stringify(values.specs, null, 2);
+    }
+    
     onSubmit({
       ...values,
+      description,
       teamMemberId: values.teamMemberId === 'none' ? '' : values.teamMemberId,
       codeBarres: values.codeBarres || scannedBarcode || '',
       image: imageUrl
@@ -243,75 +292,59 @@ const ProduitFormWithTeam = ({
 
         <FormField
           control={form.control}
-          name="description"
+          name="categorieId"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Description</FormLabel>
-              <FormControl>
-                <Input {...field} placeholder="Description du produit" />
-              </FormControl>
+              <FormLabel>Catégorie</FormLabel>
+              <Select 
+                value={field.value} 
+                onValueChange={(value) => {
+                  field.onChange(value);
+                  setSelectedCategoryId(value);
+                  setIsComputerCategory(
+                    value === LAPTOP_CATEGORY_ID || 
+                    value === DESKTOP_CATEGORY_ID
+                  );
+                }}
+              >
+                <FormControl>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Sélectionner une catégorie" />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  {categories.map(cat => (
+                    <SelectItem key={cat.id} value={cat.id}>{cat.nom}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               <FormMessage />
             </FormItem>
           )}
         />
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <FormField
-            control={form.control}
-            name="categorieId"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Catégorie</FormLabel>
-                <Select 
-                  onValueChange={field.onChange} 
-                  defaultValue={field.value}
-                >
-                  <FormControl>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Sélectionner une catégorie" />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    {categories.map(category => (
-                      <SelectItem key={category.id} value={category.id}>
-                        {category.nom}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          <FormField
-            control={form.control}
-            name="depotId"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Dépôt</FormLabel>
-                <Select 
-                  onValueChange={field.onChange} 
-                  defaultValue={field.value}
-                >
-                  <FormControl>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Sélectionner un dépôt" />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    {depots.map(depot => (
-                      <SelectItem key={depot.id} value={depot.id}>
-                        {depot.nom}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        </div>
+        <FormField
+          control={form.control}
+          name="depotId"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Dépôt</FormLabel>
+              <Select value={field.value} onValueChange={field.onChange}>
+                <FormControl>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Sélectionner un dépôt" />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  {depots.map(depot => (
+                    <SelectItem key={depot.id} value={depot.id}>{depot.nom}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
 
         <FormField
           control={form.control}
@@ -324,6 +357,7 @@ const ProduitFormWithTeam = ({
                   {...field} 
                   type="number" 
                   min="0" 
+                  step="1" 
                   onChange={e => field.onChange(parseInt(e.target.value))} 
                 />
               </FormControl>
@@ -332,85 +366,131 @@ const ProduitFormWithTeam = ({
           )}
         />
 
+        {teamMembers.length > 0 && (
+          <FormField
+            control={form.control}
+            name="teamMemberId"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Assigné à</FormLabel>
+                <Select value={field.value} onValueChange={field.onChange}>
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Sélectionner un membre de l'équipe" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    <SelectItem value="none">Non assigné</SelectItem>
+                    {teamMembers.map(member => (
+                      <SelectItem key={member.id} value={member.id}>
+                        {member.nom} {member.prenom}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        )}
+
+        {/* Description générale du produit */}
         <FormField
           control={form.control}
-          name="teamMemberId"
+          name="description"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Membre de l'équipe assigné</FormLabel>
-              <Select 
-                onValueChange={field.onChange} 
-                defaultValue={field.value}
-              >
-                <FormControl>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Assigné à" />
-                  </SelectTrigger>
-                </FormControl>
-                <SelectContent>
-                  <SelectItem value="none">Non assigné</SelectItem>
-                  {teamMembers.map(member => (
-                    <SelectItem key={member.id} value={member.id}>
-                      {member.nom} {member.prenom} ({member.role})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <FormLabel>Description</FormLabel>
+              <FormControl>
+                <textarea 
+                  {...field} 
+                  className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50" 
+                  placeholder="Description du produit"
+                />
+              </FormControl>
               <FormMessage />
             </FormItem>
           )}
         />
+        
+        {/* Afficher les champs spécifiques aux ordinateurs si une catégorie d'ordinateur est sélectionnée */}
+        {isComputerCategory && (
+          <ComputerSpecsForm
+            form={form}
+            defaultValues={initialValues?.description?.includes('{') 
+              ? JSON.parse(initialValues.description.substring(initialValues.description.indexOf('{')))
+              : undefined
+            }
+          />
+        )}
 
-        {/* Image du produit */}
-        <div className="space-y-2">
-          <Label htmlFor="image">Image du produit</Label>
-          <div className="flex flex-col gap-4">
-            {imagePreview && (
-              <div className="relative w-32 h-32 rounded-md overflow-hidden border">
-                <img 
-                  src={imagePreview} 
-                  alt="Aperçu" 
-                  className="w-full h-full object-cover"
+        <div className="space-y-4">
+          <FormLabel>Image du produit</FormLabel>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="col-span-1 sm:col-span-2">
+              <div className="flex flex-col gap-2">
+                <input
+                  type="file"
+                  accept="image/*"
+                  id="productImage"
+                  className="hidden"
+                  onChange={handleImageChange}
                 />
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-full"
+                    onClick={() => document.getElementById('productImage')?.click()}
+                  >
+                    Sélectionner une image
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-full"
+                    onClick={() => setIsCameraOpen(true)}
+                  >
+                    <Camera className="h-4 w-4 mr-2" />
+                    Prendre une photo
+                  </Button>
+                </div>
               </div>
-            )}
-            <div className="flex flex-col sm:flex-row gap-2">
-              <Input
-                id="image"
-                type="file"
-                accept="image/*"
-                onChange={handleImageChange}
-                disabled={uploading}
-                className="flex-1"
-              />
-              <Button 
-                type="button" 
-                variant="outline" 
-                onClick={() => setIsCameraOpen(true)}
-                disabled={uploading}
-              >
-                <Camera className="mr-2 h-4 w-4" />
-                Prendre une photo
-              </Button>
             </div>
-            {uploading && <p className="text-sm text-muted-foreground">Téléchargement en cours...</p>}
+            <div className="col-span-1">
+              <div className="aspect-square rounded-md overflow-hidden border flex items-center justify-center bg-muted">
+                {imagePreview ? (
+                  <img src={imagePreview} alt="Aperçu" className="w-full h-full object-cover" />
+                ) : (
+                  <span className="text-sm text-muted-foreground">Aucune image</span>
+                )}
+              </div>
+            </div>
           </div>
         </div>
 
+        {isCameraOpen && (
+          <CameraCapture
+            onCapture={handleCapturedImage}
+            onClose={() => setIsCameraOpen(false)}
+          />
+        )}
+
         <div className="flex justify-end">
-          <Button type="submit" disabled={uploading}>
-            {initialValues ? 'Mettre à jour' : 'Ajouter'}
+          <Button type="submit" disabled={uploading} className="w-full sm:w-auto">
+            {uploading ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Téléchargement...
+              </>
+            ) : initialValues ? (
+              'Enregistrer les modifications'
+            ) : (
+              'Ajouter le produit'
+            )}
           </Button>
         </div>
       </form>
-
-      {/* Composant de capture photo modal */}
-      {isCameraOpen && (
-        <CameraCapture 
-          onCapture={handleCapturedImage}
-          onClose={() => setIsCameraOpen(false)}
-        />
-      )}
     </Form>
   );
 };
