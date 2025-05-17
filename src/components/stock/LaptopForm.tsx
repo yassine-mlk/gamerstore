@@ -37,112 +37,6 @@ export interface Laptop {
   updated_at?: string;
 }
 
-// Liste des marques connues de PC portables
-const laptopBrands = [
-  "Acer", 
-  "Apple", 
-  "ASUS", 
-  "Dell", 
-  "Fujitsu", 
-  "Gigabyte", 
-  "HP", 
-  "Huawei", 
-  "Lenovo", 
-  "LG", 
-  "Microsoft", 
-  "MSI", 
-  "Razer", 
-  "Samsung", 
-  "Sony", 
-  "Toshiba", 
-  "Xiaomi"
-];
-
-// Liste des processeurs courants
-const commonProcessors = [
-  "Intel Core i3",
-  "Intel Core i5",
-  "Intel Core i7",
-  "Intel Core i9",
-  "Intel Celeron",
-  "Intel Pentium",
-  "AMD Ryzen 3",
-  "AMD Ryzen 5",
-  "AMD Ryzen 7",
-  "AMD Ryzen 9",
-  "Apple M1",
-  "Apple M2",
-  "Apple M3"
-];
-
-// Liste des cartes graphiques courantes
-const commonGraphics = [
-  "Intel HD Graphics",
-  "Intel UHD Graphics",
-  "Intel Iris Xe",
-  "AMD Radeon Graphics",
-  "NVIDIA GeForce MX450",
-  "NVIDIA GeForce GTX 1650",
-  "NVIDIA GeForce GTX 1660 Ti",
-  "NVIDIA GeForce RTX 3050",
-  "NVIDIA GeForce RTX 3060",
-  "NVIDIA GeForce RTX 3070",
-  "NVIDIA GeForce RTX 3080",
-  "NVIDIA GeForce RTX 4050",
-  "NVIDIA GeForce RTX 4060",
-  "NVIDIA GeForce RTX 4070",
-  "NVIDIA GeForce RTX 4080",
-  "NVIDIA GeForce RTX 4090",
-  "AMD Radeon RX 6600M",
-  "AMD Radeon RX 6700M",
-  "AMD Radeon RX 6800M",
-  "Apple M1/M2/M3 GPU intégré"
-];
-
-// Options de RAM courantes
-const ramOptions = [
-  "4 Go",
-  "8 Go",
-  "16 Go",
-  "32 Go",
-  "64 Go"
-];
-
-// Options de stockage courantes
-const storageOptions = [
-  "128 Go SSD",
-  "256 Go SSD",
-  "512 Go SSD",
-  "1 To SSD",
-  "2 To SSD",
-  "500 Go HDD",
-  "1 To HDD",
-  "2 To HDD",
-  "128 Go SSD + 1 To HDD",
-  "256 Go SSD + 1 To HDD",
-  "512 Go SSD + 1 To HDD"
-];
-
-// Options d'écran courantes
-const displayOptions = [
-  "13.3 pouces HD",
-  "13.3 pouces FHD",
-  "13.3 pouces QHD",
-  "14 pouces HD",
-  "14 pouces FHD",
-  "14 pouces QHD",
-  "15.6 pouces HD",
-  "15.6 pouces FHD",
-  "15.6 pouces QHD",
-  "15.6 pouces 4K",
-  "16 pouces FHD",
-  "16 pouces QHD",
-  "16 pouces 4K",
-  "17.3 pouces FHD",
-  "17.3 pouces QHD",
-  "17.3 pouces 4K"
-];
-
 type LaptopFormProps = {
   onSubmit: (data: Omit<Laptop, 'id' | 'reference' | 'created_at' | 'updated_at'>) => void;
   initialValues?: Laptop;
@@ -315,24 +209,9 @@ const LaptopForm = ({
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Marque</FormLabel>
-                <Select 
-                  onValueChange={field.onChange} 
-                  defaultValue={field.value}
-                >
-                  <FormControl>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Sélectionner une marque" />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    {laptopBrands.map(brand => (
-                      <SelectItem key={brand} value={brand}>
-                        {brand}
-                      </SelectItem>
-                    ))}
-                    <SelectItem value="Autre">Autre</SelectItem>
-                  </SelectContent>
-                </Select>
+                <FormControl>
+                  <Input {...field} placeholder="HP, Dell, Lenovo, etc." />
+                </FormControl>
                 <FormMessage />
               </FormItem>
             )}
@@ -360,24 +239,9 @@ const LaptopForm = ({
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Processeur</FormLabel>
-                <Select 
-                  onValueChange={field.onChange} 
-                  defaultValue={field.value}
-                >
-                  <FormControl>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Sélectionner un processeur" />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    {commonProcessors.map(processor => (
-                      <SelectItem key={processor} value={processor}>
-                        {processor}
-                      </SelectItem>
-                    ))}
-                    <SelectItem value="Autre">Autre</SelectItem>
-                  </SelectContent>
-                </Select>
+                <FormControl>
+                  <Input {...field} placeholder="Intel Core i7, AMD Ryzen 7, etc." />
+                </FormControl>
                 <FormMessage />
               </FormItem>
             )}
@@ -389,24 +253,9 @@ const LaptopForm = ({
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Carte graphique</FormLabel>
-                <Select 
-                  onValueChange={field.onChange} 
-                  defaultValue={field.value}
-                >
-                  <FormControl>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Sélectionner une carte graphique" />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    {commonGraphics.map(graphics => (
-                      <SelectItem key={graphics} value={graphics}>
-                        {graphics}
-                      </SelectItem>
-                    ))}
-                    <SelectItem value="Autre">Autre</SelectItem>
-                  </SelectContent>
-                </Select>
+                <FormControl>
+                  <Input {...field} placeholder="NVIDIA RTX 3060, Intel Iris Xe, etc." />
+                </FormControl>
                 <FormMessage />
               </FormItem>
             )}
@@ -420,24 +269,9 @@ const LaptopForm = ({
             render={({ field }) => (
               <FormItem>
                 <FormLabel>RAM</FormLabel>
-                <Select 
-                  onValueChange={field.onChange} 
-                  defaultValue={field.value}
-                >
-                  <FormControl>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Sélectionner la RAM" />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    {ramOptions.map(ram => (
-                      <SelectItem key={ram} value={ram}>
-                        {ram}
-                      </SelectItem>
-                    ))}
-                    <SelectItem value="Autre">Autre</SelectItem>
-                  </SelectContent>
-                </Select>
+                <FormControl>
+                  <Input {...field} placeholder="8 Go, 16 Go, etc." />
+                </FormControl>
                 <FormMessage />
               </FormItem>
             )}
@@ -449,24 +283,9 @@ const LaptopForm = ({
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Stockage</FormLabel>
-                <Select 
-                  onValueChange={field.onChange} 
-                  defaultValue={field.value}
-                >
-                  <FormControl>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Sélectionner le stockage" />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    {storageOptions.map(storage => (
-                      <SelectItem key={storage} value={storage}>
-                        {storage}
-                      </SelectItem>
-                    ))}
-                    <SelectItem value="Autre">Autre</SelectItem>
-                  </SelectContent>
-                </Select>
+                <FormControl>
+                  <Input {...field} placeholder="512 Go SSD, 1 To HDD, etc." />
+                </FormControl>
                 <FormMessage />
               </FormItem>
             )}
@@ -480,24 +299,9 @@ const LaptopForm = ({
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Écran</FormLabel>
-                <Select 
-                  onValueChange={field.onChange} 
-                  defaultValue={field.value}
-                >
-                  <FormControl>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Sélectionner l'écran" />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    {displayOptions.map(display => (
-                      <SelectItem key={display} value={display}>
-                        {display}
-                      </SelectItem>
-                    ))}
-                    <SelectItem value="Autre">Autre</SelectItem>
-                  </SelectContent>
-                </Select>
+                <FormControl>
+                  <Input {...field} placeholder="15.6 pouces FHD, 13.3 pouces 4K, etc." />
+                </FormControl>
                 <FormMessage />
               </FormItem>
             )}

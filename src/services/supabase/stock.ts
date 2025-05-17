@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabase';
 import { v4 as uuidv4 } from 'uuid';
+import { Laptop } from '@/components/stock/LaptopForm';
 
 // Type pour un produit
 export interface Produit {
@@ -476,4 +477,119 @@ export const getProduitsWithPromotions = async (): Promise<(Produit & { promotio
     console.error('Erreur lors de la récupération des produits avec promotions:', error);
     return [];
   }
+};
+
+// Laptop Management Functions
+export const getLaptops = async (): Promise<Laptop[]> => {
+  const { data, error } = await supabase
+    .from('laptops')
+    .select('*')
+    .order('created_at', { ascending: false });
+  
+  if (error) {
+    console.error('Error fetching laptops:', error);
+    throw error;
+  }
+  
+  return data || [];
+};
+
+export const createLaptop = async (laptop: Omit<Laptop, 'id' | 'reference'>): Promise<Laptop | null> => {
+  // Generate a reference internally
+  const reference = `LAP-${new Date().getFullYear().toString().substring(2)}-${Math.floor(Math.random() * 10000).toString().padStart(4, '0')}`;
+  
+  // Ensure price values are valid numbers and remove categorieId if it exists
+  const { categorieId, codeBarres, depotId, prixAchat, prixVente, teamMemberId, ...otherFields } = laptop as any;
+  
+  // Convert camelCase to snake_case for database fields
+  const validatedLaptop = {
+    ...otherFields,
+    reference,
+    code_barres: codeBarres,
+    depot_id: depotId,
+    prix_achat: typeof prixAchat === 'number' ? prixAchat : 0,
+    prix_vente: typeof prixVente === 'number' ? prixVente : 0,
+    quantite: typeof laptop.quantite === 'number' ? laptop.quantite : 0,
+    team_member_id: teamMemberId
+  };
+  
+  console.log("Attempting to create laptop with data:", validatedLaptop);
+  
+  try {
+    const { data, error } = await supabase
+      .from('laptops')
+      .insert([validatedLaptop])
+      .select()
+      .single();
+    
+    if (error) {
+      console.error('Error creating laptop:', error.message);
+      console.error('Error details:', error);
+      throw error;
+    }
+    
+    console.log("Laptop created successfully:", data);
+    return data;
+  } catch (error) {
+    console.error('Error creating laptop:', error);
+    throw error;
+  }
+};
+
+export const updateLaptop = async (id: string, laptop: Partial<Omit<Laptop, 'id' | 'reference'>>): Promise<Laptop | null> => {
+  // Convert camelCase properties to snake_case for database
+  const { codeBarres, depotId, prixAchat, prixVente, teamMemberId, ...otherFields } = laptop as any;
+  
+  // Build the update object with snake_case keys
+  const updateData: any = {
+    ...otherFields
+  };
+  
+  // Only add fields that are defined
+  if (codeBarres !== undefined) updateData.code_barres = codeBarres;
+  if (depotId !== undefined) updateData.depot_id = depotId;
+  if (prixAchat !== undefined) updateData.prix_achat = prixAchat;
+  if (prixVente !== undefined) updateData.prix_vente = prixVente;
+  if (teamMemberId !== undefined) updateData.team_member_id = teamMemberId;
+  
+  const { data, error } = await supabase
+    .from('laptops')
+    .update(updateData)
+    .eq('id', id)
+    .select()
+    .single();
+  
+  if (error) {
+    console.error('Error updating laptop:', error);
+    throw error;
+  }
+  
+  return data;
+};
+
+export const deleteLaptop = async (id: string): Promise<void> => {
+  const { error } = await supabase
+    .from('laptops')
+    .delete()
+    .eq('id', id);
+  
+  if (error) {
+    console.error('Error deleting laptop:', error);
+    throw error;
+  }
+};
+
+export const getLaptopById = async (id: string): Promise<Laptop | null> => {
+  const { data, error } = await supabase
+    .from('laptops')
+    .select('*')
+    .eq('id', id)
+    .single();
+  
+  if (error) {
+    console.error('Error fetching laptop by ID:', error);
+    throw error;
+  }
+  
+  return data;
 }; 

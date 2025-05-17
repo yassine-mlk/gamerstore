@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Search, Filter, Edit, Trash2, Package, UserCircle, Percent, Combine, Barcode, Printer, Loader2, Grid, List, Eye } from 'lucide-react';
+import { Plus, Search, Filter, Edit, Trash2, Package, UserCircle, Percent, Combine, Barcode, Printer, Loader2, Grid, List, Eye, Laptop as LaptopIcon } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -18,6 +18,9 @@ import BarcodeDisplay from '@/components/stock/BarcodeDisplay';
 import { getProduits, getProduitsWithPromotions, createProduit, updateProduit, deleteProduit, createPromotion, deletePromotion, Produit, Promotion } from '@/services/supabase/stock';
 import { getTeamMembers, TeamMember } from '@/services/supabase/team';
 import { getDepots, getCategories, Depot, Category } from '@/services/supabase/parametres';
+import LaptopFormDialog from '@/components/stock/LaptopFormDialog';
+import { getLaptops, createLaptop, updateLaptop, deleteLaptop } from '@/services/supabase/stock';
+import { Laptop } from '@/components/stock/LaptopForm';
 
 export interface Categorie extends Category {}
 
@@ -27,8 +30,9 @@ export interface ProduitWithPromotion extends Produit {
 }
 
 const StockPage = () => {
-  const [activeTab, setActiveTab] = useState<'produits' | 'compositions' | 'promotions'>('produits');
+  const [activeTab, setActiveTab] = useState<'produits' | 'compositions' | 'promotions' | 'laptops'>('produits');
   const [produits, setProduits] = useState<ProduitWithPromotion[]>([]);
+  const [laptops, setLaptops] = useState<Laptop[]>([]);
   const [categories, setCategories] = useState<Categorie[]>([]);
   const [depots, setDepots] = useState<Depot[]>([]);
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
@@ -37,23 +41,31 @@ const StockPage = () => {
   const [categorieFilter, setCategorieFilter] = useState<string>('all');
   const [depotFilter, setDepotFilter] = useState<string>('all');
   const [selectedProduit, setSelectedProduit] = useState<ProduitWithPromotion | null>(null);
+  const [selectedLaptop, setSelectedLaptop] = useState<Laptop | null>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isComposeDialogOpen, setIsComposeDialogOpen] = useState(false);
   const [isPromotionDialogOpen, setIsPromotionDialogOpen] = useState(false);
   const [isBarcodeDialogOpen, setIsBarcodeDialogOpen] = useState(false);
+  const [isAddLaptopDialogOpen, setIsAddLaptopDialogOpen] = useState(false);
+  const [isEditLaptopDialogOpen, setIsEditLaptopDialogOpen] = useState(false);
+  const [isDeleteLaptopDialogOpen, setIsDeleteLaptopDialogOpen] = useState(false);
   const [isLoading, setIsLoading] = useState({
     produits: false,
     categories: false,
     depots: false,
     teamMembers: false,
     promotions: false,
+    laptops: false,
     add: false,
     edit: false,
     delete: false,
     compose: false,
-    promotion: false
+    promotion: false,
+    addLaptop: false,
+    editLaptop: false,
+    deleteLaptop: false
   });
   const [viewMode, setViewMode] = useState<'table' | 'cards'>('table');
 
@@ -61,7 +73,7 @@ const StockPage = () => {
 
   useEffect(() => {
     const loadData = async () => {
-      setIsLoading(prev => ({ ...prev, produits: true, categories: true, depots: true, teamMembers: true, promotions: true }));
+      setIsLoading(prev => ({ ...prev, produits: true, categories: true, depots: true, teamMembers: true, promotions: true, laptops: true }));
       
       try {
         const produitsData = await getProduitsWithPromotions();
@@ -80,11 +92,21 @@ const StockPage = () => {
         
         const teamMembersData = await getTeamMembers();
         setTeamMembers(teamMembersData);
+        
+        // Check if the laptops table exists
+        try {
+          // Load laptops
+          const laptopsData = await getLaptops();
+          setLaptops(laptopsData);
+        } catch (laptopError) {
+          console.error('Error loading laptops:', laptopError);
+          toast.error('La table des PC portables n\'existe peut-être pas dans la base de données. Veuillez exécuter le script SQL pour créer la table.');
+        }
       } catch (error) {
         console.error('Erreur lors du chargement des données:', error);
         toast.error('Erreur lors du chargement des données');
       } finally {
-        setIsLoading(prev => ({ ...prev, produits: false, categories: false, depots: false, teamMembers: false, promotions: false }));
+        setIsLoading(prev => ({ ...prev, produits: false, categories: false, depots: false, teamMembers: false, promotions: false, laptops: false }));
       }
     };
     
@@ -106,6 +128,17 @@ const StockPage = () => {
     } else {
       return matchesSearch && matchesCategorie && matchesDepot && matchesPromotion;
     }
+  });
+
+  const filteredLaptops = laptops.filter(laptop => {
+    const matchesSearch = 
+      laptop.nom.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      laptop.reference.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      laptop.brand.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      laptop.model.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesDepot = depotFilter === 'all' ? true : laptop.depotId === depotFilter;
+    
+    return matchesSearch && matchesDepot;
   });
 
   const getCategoryName = (categoryId: string) => {
@@ -450,8 +483,94 @@ const StockPage = () => {
     navigate(`/dashboard/stock/product/${productId}`);
   };
 
+  const handleAddLaptop = async (laptopData: Omit<Laptop, 'id' | 'reference' | 'created_at' | 'updated_at'>) => {
+    setIsLoading(prev => ({ ...prev, addLaptop: true }));
+    
+    try {
+      // Only check for depot, removed category check
+      if (!laptopData.depotId || laptopData.depotId.trim() === '') {
+        toast.error("Veuillez sélectionner un dépôt pour le laptop");
+        setIsLoading(prev => ({ ...prev, addLaptop: false }));
+        return;
+      }
+
+      // Log the data being sent to help debug
+      console.log("Sending laptop data:", laptopData);
+
+      const newLaptop = await createLaptop(laptopData);
+      
+      if (newLaptop) {
+        setLaptops(prev => [...prev, newLaptop]);
+        toast.success("Laptop ajouté avec succès");
+      } else {
+        toast.error("Erreur lors de l'ajout du laptop. Réponse vide du serveur.");
+      }
+    } catch (error: any) {
+      console.error("Erreur lors de l'ajout du laptop:", error);
+      
+      // Detailed error message
+      let errorMessage = "Erreur lors de l'ajout du laptop";
+      if (error && error.message) {
+        errorMessage += `: ${error.message}`;
+      } else if (error && error.error && error.error.message) {
+        errorMessage += `: ${error.error.message}`;
+      }
+      
+      toast.error(errorMessage);
+      toast.error("Vérifiez la structure de la table 'laptops' dans votre base de données Supabase");
+    } finally {
+      setIsLoading(prev => ({ ...prev, addLaptop: false }));
+      setIsAddLaptopDialogOpen(false);
+    }
+  };
+
+  const handleEditLaptop = async (laptopData: Omit<Laptop, 'id' | 'reference' | 'created_at' | 'updated_at'>) => {
+    if (!selectedLaptop) return;
+    
+    setIsLoading(prev => ({ ...prev, editLaptop: true }));
+    
+    try {
+      const updatedLaptop = await updateLaptop(selectedLaptop.id, laptopData);
+      
+      if (updatedLaptop) {
+        setLaptops(prev => prev.map(laptop => 
+          laptop.id === updatedLaptop.id ? updatedLaptop : laptop
+        ));
+        toast.success("Laptop mis à jour avec succès");
+      } else {
+        toast.error("Erreur lors de la mise à jour du laptop");
+      }
+    } catch (error) {
+      console.error("Erreur lors de la mise à jour du laptop:", error);
+      toast.error("Erreur lors de la mise à jour du laptop");
+    } finally {
+      setIsLoading(prev => ({ ...prev, editLaptop: false }));
+      setIsEditLaptopDialogOpen(false);
+      setSelectedLaptop(null);
+    }
+  };
+
+  const handleDeleteLaptop = async () => {
+    if (!selectedLaptop) return;
+    
+    setIsLoading(prev => ({ ...prev, deleteLaptop: true }));
+    
+    try {
+      await deleteLaptop(selectedLaptop.id);
+      setLaptops(prev => prev.filter(laptop => laptop.id !== selectedLaptop.id));
+      toast.success("Laptop supprimé avec succès");
+    } catch (error) {
+      console.error("Erreur lors de la suppression du laptop:", error);
+      toast.error("Erreur lors de la suppression du laptop");
+    } finally {
+      setIsLoading(prev => ({ ...prev, deleteLaptop: false }));
+      setIsDeleteLaptopDialogOpen(false);
+      setSelectedLaptop(null);
+    }
+  };
+
   // Rendu conditionnel basé sur l'état de chargement des données
-  if (isLoading.produits || isLoading.categories || isLoading.depots || isLoading.teamMembers) {
+  if (isLoading.produits || isLoading.categories || isLoading.depots || isLoading.teamMembers || isLoading.laptops) {
     return (
       <div className="flex flex-col items-center justify-center h-64">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -467,13 +586,14 @@ const StockPage = () => {
         <p className="text-muted-foreground">Gérez les produits, compositions et promotions</p>
       </div>
 
-      <Tabs defaultValue="produits" onValueChange={(value) => setActiveTab(value as 'produits' | 'compositions' | 'promotions')}>
+      <Tabs defaultValue="produits" onValueChange={(value) => setActiveTab(value as 'produits' | 'compositions' | 'promotions' | 'laptops')}>
         <div className="flex flex-wrap justify-between items-center">
           <div className="flex items-center gap-4">
             <TabsList>
               <TabsTrigger value="produits">Produits</TabsTrigger>
               <TabsTrigger value="compositions">Compositions</TabsTrigger>
               <TabsTrigger value="promotions">Promotions</TabsTrigger>
+              <TabsTrigger value="laptops">PC Portables</TabsTrigger>
             </TabsList>
             
             {/* View mode toggle */}
@@ -562,6 +682,13 @@ const StockPage = () => {
                   <Button onClick={() => setIsPromotionDialogOpen(true)}>
                     <Percent className="mr-2 h-4 w-4" />
                     Nouvelle promotion
+                  </Button>
+                )}
+                
+                {activeTab === 'laptops' && (
+                  <Button onClick={() => setIsAddLaptopDialogOpen(true)}>
+                    <Plus className="mr-2 h-4 w-4" />
+                    Nouveau PC portable
                   </Button>
                 )}
               </div>
@@ -763,7 +890,7 @@ const StockPage = () => {
                     <div className="space-y-2">
                       <div className="flex justify-between">
                         <span className="text-muted-foreground text-sm">Prix:</span>
-                        <span className="font-medium">{produit.prixVente.toFixed(2)} DH</span>
+                        <span className="font-medium">{produit.prixVente !== undefined && produit.prixVente !== null ? produit.prixVente.toFixed(2) : '0.00'} DH</span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-muted-foreground text-sm">Dépôt:</span>
@@ -851,7 +978,7 @@ const StockPage = () => {
                         </TableCell>
                         <TableCell>{getCategoryName(produit.categorieId)}</TableCell>
                         <TableCell className="hidden md:table-cell">{getDepotName(produit.depotId)}</TableCell>
-                        <TableCell className="text-right">{produit.prixVente !== undefined ? produit.prixVente.toFixed(2) : '0.00'} DH</TableCell>
+                        <TableCell className="text-right">{produit.prixVente !== undefined && produit.prixVente !== null ? produit.prixVente.toFixed(2) : '0.00'} DH</TableCell>
                         <TableCell className="hidden lg:table-cell">
                           <div className="flex flex-col gap-1">
                             {produit.composants?.map((comp, idx) => {
@@ -957,9 +1084,9 @@ const StockPage = () => {
                              promo.type === 'montant' ? `${promo.valeur} DH` : 
                              `${promo.valeur} offert(s)`}
                           </TableCell>
-                          <TableCell>{produit.prixVente !== undefined ? produit.prixVente.toFixed(2) : '0.00'} DH</TableCell>
+                          <TableCell>{produit.prixVente !== undefined && produit.prixVente !== null ? produit.prixVente.toFixed(2) : '0.00'} DH</TableCell>
                           <TableCell className="font-medium text-red-600 dark:text-red-400">
-                            {prixPromo !== undefined ? prixPromo.toFixed(2) : '0.00'} DH
+                            {prixPromo !== undefined && prixPromo !== null ? prixPromo.toFixed(2) : '0.00'} DH
                           </TableCell>
                           <TableCell className="hidden md:table-cell">
                             {new Date(promo.dateDebut).toLocaleDateString('fr-FR')} au {new Date(promo.dateFin).toLocaleDateString('fr-FR')}
@@ -1008,6 +1135,206 @@ const StockPage = () => {
               </Table>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="laptops" className="mt-6">
+          {viewMode === 'table' ? (
+            <Card className="overflow-hidden">
+              <CardContent className="p-0">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Référence</TableHead>
+                      <TableHead>PC Portable</TableHead>
+                      <TableHead>Marque/Modèle</TableHead>
+                      <TableHead>Processeur</TableHead>
+                      <TableHead>RAM/Stockage</TableHead>
+                      <TableHead className="text-right">Prix Vente</TableHead>
+                      <TableHead className="text-right">Stock</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredLaptops.length > 0 ? (
+                      filteredLaptops.map((laptop) => {
+                        return (
+                          <TableRow key={laptop.id}>
+                            <TableCell className="font-mono text-xs">{laptop.reference}</TableCell>
+                            <TableCell className="font-medium">
+                              <div className="flex items-center gap-2">
+                                {laptop.image ? (
+                                  <div className="w-8 h-8 rounded-md overflow-hidden">
+                                    <img src={laptop.image} alt={laptop.nom} className="w-full h-full object-cover" />
+                                  </div>
+                                ) : (
+                                  <div className="w-8 h-8 bg-muted rounded-md flex items-center justify-center">
+                                    <LaptopIcon className="h-4 w-4 text-muted-foreground" />
+                                  </div>
+                                )}
+                                {laptop.nom}
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex flex-col">
+                                <span className="font-medium">{laptop.brand}</span>
+                                <span className="text-sm text-muted-foreground">{laptop.model}</span>
+                              </div>
+                            </TableCell>
+                            <TableCell>{laptop.processor}</TableCell>
+                            <TableCell>
+                              <div className="flex flex-col">
+                                <span>{laptop.ram}</span>
+                                <span className="text-sm text-muted-foreground">{laptop.storage}</span>
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <span>{laptop.prixVente !== undefined && laptop.prixVente !== null ? laptop.prixVente.toFixed(2) : '0.00'} DH</span>
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <Badge variant={laptop.quantite > 10 ? "outline" : laptop.quantite > 0 ? "secondary" : "destructive"}>
+                                {laptop.quantite}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <div className="flex justify-end gap-2">
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  disabled={isLoading.editLaptop}
+                                  onClick={() => {
+                                    setSelectedLaptop(laptop);
+                                    setIsEditLaptopDialogOpen(true);
+                                  }}
+                                >
+                                  {isLoading.editLaptop && selectedLaptop?.id === laptop.id ? (
+                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                  ) : (
+                                    <Edit className="h-4 w-4" />
+                                  )}
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  disabled={isLoading.deleteLaptop}
+                                  onClick={() => {
+                                    setSelectedLaptop(laptop);
+                                    setIsDeleteLaptopDialogOpen(true);
+                                  }}
+                                >
+                                  {isLoading.deleteLaptop && selectedLaptop?.id === laptop.id ? (
+                                    <Loader2 className="h-4 w-4 animate-spin text-red-500" />
+                                  ) : (
+                                    <Trash2 className="h-4 w-4 text-red-500" />
+                                  )}
+                                </Button>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })
+                    ) : (
+                      <TableRow>
+                        <TableCell colSpan={8} className="text-center py-6">
+                          <div className="flex flex-col items-center justify-center text-muted-foreground">
+                            <LaptopIcon className="h-8 w-8 mb-2" />
+                            <p>Aucun PC portable trouvé</p>
+                            <Button 
+                              variant="link" 
+                              onClick={() => setIsAddLaptopDialogOpen(true)}
+                              className="mt-2"
+                            >
+                              Ajouter un nouveau PC portable
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+              {filteredLaptops.length > 0 ? (
+                filteredLaptops.map((laptop) => (
+                  <Card key={laptop.id} className="overflow-hidden">
+                    <div className="aspect-[4/3] w-full relative">
+                      {laptop.image ? (
+                        <img 
+                          src={laptop.image}
+                          alt={laptop.nom}
+                          className="object-cover w-full h-full"
+                        />
+                      ) : (
+                        <div className="w-full h-full bg-muted flex items-center justify-center">
+                          <LaptopIcon className="h-12 w-12 text-muted-foreground" />
+                        </div>
+                      )}
+                      <Badge 
+                        variant={laptop.quantite > 10 ? "outline" : laptop.quantite > 0 ? "secondary" : "destructive"}
+                        className="absolute top-2 right-2"
+                      >
+                        Stock: {laptop.quantite}
+                      </Badge>
+                    </div>
+                    <CardHeader className="p-4">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <CardTitle className="text-base">{laptop.nom}</CardTitle>
+                          <CardDescription>{laptop.brand} {laptop.model}</CardDescription>
+                        </div>
+                        <div className="font-bold">{laptop.prixVente !== undefined && laptop.prixVente !== null ? laptop.prixVente.toFixed(2) : '0.00'} DH</div>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="px-4 pb-2 pt-0">
+                      <div className="flex flex-col gap-1 text-xs text-muted-foreground">
+                        <div><span className="font-medium">Processeur:</span> {laptop.processor}</div>
+                        <div><span className="font-medium">RAM/Stockage:</span> {laptop.ram} / {laptop.storage}</div>
+                        <div><span className="font-medium">Écran:</span> {laptop.display}</div>
+                        <div><span className="font-medium">État:</span> {laptop.condition}</div>
+                      </div>
+                    </CardContent>
+                    <CardFooter className="flex justify-between p-4 pt-0">
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => {
+                          setSelectedLaptop(laptop);
+                          setIsEditLaptopDialogOpen(true);
+                        }}
+                      >
+                        <Edit className="h-3.5 w-3.5 mr-1" />
+                        Modifier
+                      </Button>
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        className="text-red-500 border-red-200 dark:border-red-800 hover:bg-red-50 dark:hover:bg-red-950"
+                        onClick={() => {
+                          setSelectedLaptop(laptop);
+                          setIsDeleteLaptopDialogOpen(true);
+                        }}
+                      >
+                        <Trash2 className="h-3.5 w-3.5 mr-1" />
+                        Supprimer
+                      </Button>
+                    </CardFooter>
+                  </Card>
+                ))
+              ) : (
+                <div className="col-span-full flex flex-col items-center justify-center py-12 text-muted-foreground">
+                  <LaptopIcon className="h-12 w-12 mb-4" />
+                  <p className="mb-2">Aucun PC portable trouvé</p>
+                  <Button 
+                    variant="link" 
+                    onClick={() => setIsAddLaptopDialogOpen(true)}
+                  >
+                    Ajouter un nouveau PC portable
+                  </Button>
+                </div>
+              )}
+            </div>
+          )}
         </TabsContent>
       </Tabs>
 
@@ -1099,7 +1426,7 @@ const StockPage = () => {
                 <p className="text-sm text-muted-foreground">Référence: {selectedProduit.reference}</p>
                 <p className="text-sm text-muted-foreground">Catégorie: {getCategoryName(selectedProduit.categorieId)}</p>
                 <p className="text-sm text-muted-foreground">Dépôt: {getDepotName(selectedProduit.depotId)}</p>
-                <p className="text-sm text-muted-foreground">Prix: {selectedProduit.prixVente !== undefined ? selectedProduit.prixVente.toFixed(2) : '0.00'} DH</p>
+                <p className="text-sm text-muted-foreground">Prix: {selectedProduit.prixVente !== undefined && selectedProduit.prixVente !== null ? selectedProduit.prixVente.toFixed(2) : '0.00'} DH</p>
                 <p className="text-sm text-muted-foreground">Stock: {selectedProduit.quantite}</p>
               </div>
             </div>
@@ -1149,6 +1476,79 @@ const StockPage = () => {
           <DialogFooter className="mt-4">
             <Button variant="outline" onClick={() => setIsBarcodeDialogOpen(false)}>
               Fermer
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <LaptopFormDialog
+        isOpen={isAddLaptopDialogOpen}
+        onClose={() => setIsAddLaptopDialogOpen(false)}
+        onSubmit={handleAddLaptop}
+        depots={depots}
+        teamMembers={teamMembers}
+        isLoading={isLoading.addLaptop}
+        title="Ajouter un nouveau PC portable"
+      />
+
+      <LaptopFormDialog
+        isOpen={isEditLaptopDialogOpen}
+        onClose={() => {
+          setIsEditLaptopDialogOpen(false);
+          setSelectedLaptop(null);
+        }}
+        onSubmit={handleEditLaptop}
+        initialValues={selectedLaptop || undefined}
+        depots={depots}
+        teamMembers={teamMembers}
+        isLoading={isLoading.editLaptop}
+        title="Modifier le PC portable"
+      />
+
+      <Dialog open={isDeleteLaptopDialogOpen} onOpenChange={() => {
+        setIsDeleteLaptopDialogOpen(false);
+        setSelectedLaptop(null);
+      }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Confirmer la suppression</DialogTitle>
+            <DialogDescription>
+              Êtes-vous sûr de vouloir supprimer ce PC portable ? Cette action est irréversible.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            {selectedLaptop && (
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 bg-muted rounded-md flex items-center justify-center">
+                  <LaptopIcon className="h-6 w-6 text-muted-foreground" />
+                </div>
+                <div>
+                  <p className="font-medium">{selectedLaptop.nom}</p>
+                  <p className="text-sm text-muted-foreground">{selectedLaptop.brand} {selectedLaptop.model}</p>
+                </div>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => {
+              setIsDeleteLaptopDialogOpen(false);
+              setSelectedLaptop(null);
+            }}>
+              Annuler
+            </Button>
+            <Button 
+              variant="destructive" 
+              onClick={handleDeleteLaptop}
+              disabled={isLoading.deleteLaptop}
+            >
+              {isLoading.deleteLaptop ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Suppression...
+                </>
+              ) : (
+                'Supprimer'
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>
