@@ -1,0 +1,52 @@
+
+@media print {
+  /* Hide all elements that are not inside the print container */
+  body > *:not(.print-container) {
+    display: none !important;
+  }
+
+  /* Set some print-specific styles */
+  .print-container {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    background: white;
+    margin: 0;
+    padding: 0;
+    font-size: 12pt;
+  }
+
+  /* Remove shadows, rounded corners, etc. */
+  .print-container * {
+    box-shadow: none !important;
+    border-radius: 0 !important;
+  }
+
+  /* Hide any elements with the print:hidden class */
+  .print\:hidden {
+    display: none !important;
+  }
+
+  /* Page break control */
+  .print\:page-break-before {
+    page-break-before: always;
+  }
+
+  .print\:page-break-after {
+    page-break-after: always;
+  }
+
+  /* Ensure the page background is white */
+  @page {
+    margin: 1cm;
+    size: auto;
+  }
+
+  /* Special styles for receipts */
+  .receipt-print {
+    width: 80mm;
+    margin: 0 auto;
+    font-size: 10pt;
+  }
+}
