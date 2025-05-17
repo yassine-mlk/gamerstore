@@ -42,6 +42,24 @@ export interface Promotion {
  * vers les propriétés de notre modèle TypeScript
  */
 function mapDatabaseToModel(dbProduct: any): Produit {
+  // Vérifier si dbProduct est null ou undefined avant d'utiliser Object.keys
+  if (!dbProduct) {
+    console.error("Erreur: Objet produit NULL ou undefined reçu dans mapDatabaseToModel");
+    // Retourner un objet vide mais conforme au type Produit
+    return {
+      id: '',
+      nom: '',
+      description: '',
+      reference: '',
+      codeBarres: '',
+      prixAchat: 0,
+      prixVente: 0,
+      quantite: 0,
+      categorieId: '',
+      depotId: ''
+    };
+  }
+  
   // Afficher toutes les clés disponibles pour le débogage
   console.log("Clés disponibles dans le produit de la BDD:", Object.keys(dbProduct));
   
@@ -112,62 +130,18 @@ export const createProduit = async (produit: Omit<Produit, 'id' | 'created_at' |
     // Afficher l'objet produit complet pour débogage
     console.log("Données du produit à créer:", produit);
     
+    // Vérifier que la référence est bien définie
+    if (!produit.reference) {
+      console.error("Erreur: La référence du produit est manquante");
+      // Générer une référence par défaut si elle est manquante
+      produit.reference = `REF-${new Date().getTime()}`;
+    }
+    
     // Générer un ID unique
     const id = uuidv4();
     
-    // Essayer une approche directe avec colonnes spécifiées dans la requête SQL
-    try {
-      console.log("Tentative d'insertion SQL directe avec toutes les colonnes...");
-      
-      // Construire la requête SQL avec les noms exacts des colonnes
-      const { data: sqlData, error: sqlError } = await supabase.rpc('execute_sql', {
-        sql_query: `
-          INSERT INTO produits (
-            id, 
-            nom, 
-            reference, 
-            prixachat, 
-            prixvente, 
-            quantite,
-            description,
-            codebarres,
-            categorieid, 
-            depotid, 
-            teammemberid,
-            image
-          ) VALUES (
-            '${id}', 
-            '${produit.nom.replace(/'/g, "''")}', 
-            '${produit.reference.replace(/'/g, "''")}', 
-            ${produit.prixAchat || 0}, 
-            ${produit.prixVente || 0},
-            ${produit.quantite || 0},
-            '${(produit.description || '').replace(/'/g, "''")}',
-            '${(produit.codeBarres || produit.reference).replace(/'/g, "''")}',
-            '${(produit.categorieId || '').replace(/'/g, "''")}',
-            '${(produit.depotId || '').replace(/'/g, "''")}',
-            ${produit.teamMemberId ? `'${produit.teamMemberId.replace(/'/g, "''")}'` : 'NULL'},
-            ${produit.image ? `'${produit.image.replace(/'/g, "''")}'` : 'NULL'}
-          )
-          RETURNING *
-        `
-      });
-      
-      if (sqlError) {
-        console.error("Erreur lors de l'insertion SQL directe:", sqlError);
-      } else {
-        console.log("Succès de l'insertion SQL directe:", sqlData);
-        return mapDatabaseToModel(sqlData[0]);
-      }
-    } catch (directSqlError) {
-      console.error("Exception lors de l'insertion SQL directe:", directSqlError);
-    }
-    
-    // Fallback au code existant si l'insertion directe échoue
-    
-    // Créer un objet avec les propriétés absolument minimales
-    // En utilisant uniquement les champs qui sont presque certainement dans la base de données
-    const baseProduct = {
+    // Créer un objet avec les noms de champs adaptés à la base de données
+    const productToInsert = {
       id,
       nom: produit.nom,
       reference: produit.reference, 
@@ -179,105 +153,69 @@ export const createProduit = async (produit: Omit<Produit, 'id' | 'created_at' |
       categorieid: produit.categorieId || '',
       depotid: produit.depotId || '',
       teammemberid: produit.teamMemberId || null,
-      image: produit.image || null
+      image: produit.image || null,
+      compose: produit.compose || false
     };
-
-    console.log("Tentative d'insertion avec tous les champs:", baseProduct);
-
-    // Essayer d'insérer le produit avec tous les champs
+    
+    console.log("Tentative d'insertion avec données préparées:", productToInsert);
+    
+    // Effectuer l'insertion avec la structure correcte
     const { data, error } = await supabase
       .from('produits')
-      .insert([baseProduct])
-      .select()
+      .insert([productToInsert])
+      .select('*')
       .single();
-
+    
     if (error) {
-      console.error("Erreur lors de l'insertion complète:", error);
+      console.error("Erreur lors de l'insertion:", error);
       
-      // Si même l'insertion complète échoue, essayer avec une approche plus basique
-      // mais conserver les IDs des relations
-      const minimalProduct = {
-        id,
-        nom: produit.nom,
-        reference: produit.reference,
-        prixachat: produit.prixAchat,
-        prixvente: produit.prixVente,
-        // Inclure spécifiquement les IDs des relations
-        categorieid: produit.categorieId,
-        depotid: produit.depotId,
-        teammemberid: produit.teamMemberId
-      };
-      
-      console.log("Tentative d'insertion avec champs minimaux + relations:", minimalProduct);
-      
-      const { data: minData, error: minError } = await supabase
-        .from('produits')
-        .insert([minimalProduct])
-        .select()
-        .single();
+      // Si l'insertion échoue, essayer avec une insertion SQL plus directe
+      try {
+        console.log("Tentative SQL alternative...");
         
-      if (minError) {
-        console.error("Échec de l'insertion minimale avec relations:", minError);
+        const { data: rawData, error: rawError } = await supabase.rpc('execute_sql', {
+          sql_query: `
+            INSERT INTO produits (
+              id, 
+              nom, 
+              reference,
+              codebarres,
+              description,
+              prixachat, 
+              prixvente, 
+              quantite,
+              categorieid, 
+              depotid
+            ) VALUES (
+              '${id}', 
+              '${produit.nom.replace(/'/g, "''")}',
+              '${produit.reference.replace(/'/g, "''")}',
+              '${(produit.codeBarres || produit.reference).replace(/'/g, "''")}',
+              '${(produit.description || '').replace(/'/g, "''")}',
+              ${produit.prixAchat || 0}, 
+              ${produit.prixVente || 0},
+              ${produit.quantite || 0},
+              '${(produit.categorieId || '').replace(/'/g, "''")}',
+              '${(produit.depotId || '').replace(/'/g, "''")}'
+            )
+            RETURNING *
+          `
+        });
         
-        // Dernière tentative: essayer d'utiliser une requête SQL brute simplifiée
-        try {
-          console.log("Tentative SQL minimale avec ID relations...");
-          
-          // Construire une requête SQL plus basique mais avec les ID des relations
-          const { data: minSqlData, error: minSqlError } = await supabase.rpc('execute_sql', {
-            sql_query: `
-              SELECT 
-                column_name, 
-                data_type 
-              FROM 
-                information_schema.columns 
-              WHERE 
-                table_name = 'produits'
-            `
-          });
-          
-          if (minSqlError) {
-            console.error("Erreur lors de la requête information_schema:", minSqlError);
-          } else {
-            console.log("Colonnes de la table produits:", minSqlData);
-          }
-          
-          // Maintenant essayer l'insertion SQL brute
-          const { data: rawData, error: rawError } = await supabase.rpc('execute_sql', {
-            sql_query: `
-              INSERT INTO produits (id, nom, reference, prixachat, prixvente, categorieid, depotid, teammemberid) 
-              VALUES (
-                '${id}', 
-                '${produit.nom.replace(/'/g, "''")}', 
-                '${produit.reference.replace(/'/g, "''")}', 
-                ${produit.prixAchat || 0}, 
-                ${produit.prixVente || 0},
-                ${produit.categorieId ? `'${produit.categorieId.replace(/'/g, "''")}'` : 'NULL'},
-                ${produit.depotId ? `'${produit.depotId.replace(/'/g, "''")}'` : 'NULL'},
-                ${produit.teamMemberId ? `'${produit.teamMemberId.replace(/'/g, "''")}'` : 'NULL'}
-              )
-              RETURNING *
-            `
-          });
-          
-          if (rawError) {
-            console.error("Échec de l'insertion SQL brute minimale:", rawError);
-            return null;
-          }
-          
-          console.log("Insertion SQL brute minimale réussie:", rawData);
-          return mapDatabaseToModel(rawData[0]);
-        } catch (sqlError) {
-          console.error("Erreur lors de l'exécution SQL brute minimale:", sqlError);
+        if (rawError) {
+          console.error("Échec de l'insertion SQL alternative:", rawError);
           return null;
         }
+        
+        console.log("Insertion SQL alternative réussie:", rawData);
+        return mapDatabaseToModel(rawData[0]);
+      } catch (sqlError) {
+        console.error("Erreur lors de l'exécution SQL alternative:", sqlError);
+        return null;
       }
-      
-      console.log("Insertion minimale avec relations réussie:", minData);
-      return mapDatabaseToModel(minData);
     }
     
-    console.log("Insertion complète réussie, données retournées:", data);
+    console.log("Insertion réussie, données retournées:", data);
     return mapDatabaseToModel(data);
     
   } catch (error) {
