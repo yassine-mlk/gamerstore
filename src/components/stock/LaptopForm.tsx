@@ -171,13 +171,6 @@ const LaptopForm = ({
                   onBarcodeScanned={(barcode) => {
                     field.onChange(barcode);
                     setScannedBarcode(barcode);
-                    
-                    setTimeout(() => {
-                      const nextField = document.querySelector('input[name="nom"]');
-                      if (nextField instanceof HTMLElement) {
-                        nextField.focus();
-                      }
-                    }, 0);
                   }} 
                   defaultValue={field.value}
                 />

@@ -167,16 +167,6 @@ const ProduitFormWithTeam = ({
                     // Mettre à jour le champ sans soumettre le formulaire
                     field.onChange(barcode);
                     setScannedBarcode(barcode);
-                    
-                    // Empêcher le comportement qui pourrait déclencher une soumission de formulaire
-                    // en utilisant setTimeout pour sortir du cycle d'événements actuels
-                    setTimeout(() => {
-                      // Optionnel: focus sur le champ suivant après scan pour guider l'utilisateur
-                      const nextField = document.querySelector('input[name="nom"]');
-                      if (nextField instanceof HTMLElement) {
-                        nextField.focus();
-                      }
-                    }, 0);
                   }} 
                   defaultValue={field.value}
                 />

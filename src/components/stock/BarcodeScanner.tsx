@@ -19,7 +19,7 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({ onBarcodeScanned, defau
   const handleManualInput = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
     setBarcode(value);
-    // Mise à jour directe du champ dans le formulaire
+    // Ne mise à jour le champ dans le formulaire qu'avec la nouvelle valeur
     onBarcodeScanned(value);
   };
 

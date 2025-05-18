@@ -487,9 +487,47 @@ const StockPage = () => {
     setIsLoading(prev => ({ ...prev, addLaptop: true }));
     
     try {
-      // Only check for depot, removed category check
-      if (!laptopData.depotId || laptopData.depotId.trim() === '') {
-        toast.error("Veuillez sélectionner un dépôt pour le laptop");
+      // Vérification des champs obligatoires
+      const requiredFields = [
+        { field: 'nom', label: 'Nom du produit' },
+        { field: 'brand', label: 'Marque' },
+        { field: 'model', label: 'Modèle' },
+        { field: 'processor', label: 'Processeur' },
+        { field: 'graphics', label: 'Carte graphique' },
+        { field: 'ram', label: 'RAM' },
+        { field: 'storage', label: 'Stockage' },
+        { field: 'display', label: 'Écran' },
+        { field: 'condition', label: 'État' },
+        { field: 'depotId', label: 'Dépôt' },
+        { field: 'codeBarres', label: 'Code-barres' },
+        { field: 'prixAchat', label: 'Prix d\'achat' },
+        { field: 'prixVente', label: 'Prix de vente' },
+        { field: 'quantite', label: 'Quantité' }
+      ];
+      
+      for (const { field, label } of requiredFields) {
+        if (!laptopData[field as keyof typeof laptopData] && field !== 'teamMemberId' && field !== 'image' && field !== 'description') {
+          toast.error(`Le champ ${label} est obligatoire`);
+          setIsLoading(prev => ({ ...prev, addLaptop: false }));
+          return;
+        }
+      }
+
+      // Vérification spécifique pour les valeurs numériques
+      if (laptopData.prixAchat <= 0) {
+        toast.error("Le prix d'achat doit être supérieur à 0");
+        setIsLoading(prev => ({ ...prev, addLaptop: false }));
+        return;
+      }
+      
+      if (laptopData.prixVente <= 0) {
+        toast.error("Le prix de vente doit être supérieur à 0");
+        setIsLoading(prev => ({ ...prev, addLaptop: false }));
+        return;
+      }
+      
+      if (laptopData.quantite <= 0) {
+        toast.error("La quantité doit être supérieure à 0");
         setIsLoading(prev => ({ ...prev, addLaptop: false }));
         return;
       }
